@@ -14,7 +14,6 @@ TOKEN = 'y0_AgAAAAAntKPVAAqnjgAAAADvHae-eQmDRNXeThaqoPlbkr24VwMpuXY'
 headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'OAuth {TOKEN}'}
 
 
-
 def update_emb(TOKEN):
     # в директории Images хранятся папки со всеми изображениями
     load_dirs(TOKEN)

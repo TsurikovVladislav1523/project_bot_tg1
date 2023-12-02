@@ -11,6 +11,7 @@ import random
 from face_analysis import search, update_emb
 from texts import *
 from add_token import add_token
+from detect_pet import search_pet
 from db import *
 
 TOKEN_ID = "6497123928:AAE_TTI7TKoI9iB1W1Ys_1NuEJtKs9wSQSk"
@@ -51,7 +52,7 @@ def upload_file(path, tg_id, name, replace=False):
     replace: true or false Замена файла на Диске"""
     res = requests.get(f'{URL}/upload?path=photos/{path}/{name}.png&overwrite={replace}',
                        headers=all_headers[tg_id]).json()
-    with open(f'photos/{name}.png', 'rb') as f:
+    with open(f'Images/{name}.png', 'rb') as f:
         try:
             requests.put(res['href'], files={'file': f})
         except KeyError:
@@ -161,7 +162,7 @@ async def load(message: types.Message):
             tg_id = message.from_user.id
             create_folder(path, tg_id)
             upload_file(path, tg_id, name)
-            os.remove(f'photos/{name}.png')
+            os.remove(f'Images/{name}.png')
             update_emb(TOKEN)
             await message.answer(f'Сохранение фото в папку "{path}"')
 
@@ -177,15 +178,28 @@ async def load(message: types.Message):
         tg_id = message.from_user.id
         name = str(tg_id) + str(random.randint(0, 1000000))
         print(name)
-        img.save(f'photos/{name}.png', format="PNG")
+        img.save(f'Images/{name}.png', format="PNG")
         img.close()
         tg_id = message.from_user.id
-        pathes = search(f'photos/{name}.png')
+        pathes = search(f'Images/{name}.png')
+
+        pet_search_result = search_pet(f'Images/{name}.png')
+        pet_flag = pet_search_result[0]
+        pet_type = pet_search_result[1]
+
+        if pet_search_result is not None:
+            if pet_flag:
+                upload_file(pet_type, tg_id, name)
+            else:
+                if pet_type is not None:
+                    create_folder(pet_type, tg_id)
+                    upload_file(pet_type, tg_id, name)
+
         print(pathes)
         if pathes:
             for path in pathes:
                 upload_file(path, tg_id, name)
-            os.remove(f'photos/{name}.png')
+            os.remove(f'Images/{name}.png')
             await message.answer(f'Сохранение фото в папку "{path}"')
         else:
             await message.answer(

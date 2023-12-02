@@ -1,0 +1,7 @@
+tabby_cat
+tabby
+tiger_cat
+Persian_cat
+Siamese_cat
+Siamese
+Egyptian_cat
