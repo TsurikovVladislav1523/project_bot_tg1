@@ -45,6 +45,7 @@ def update_emb(TOKEN):
 
 
 def search(path):
+    print(path)
     # find path of xml file containing haarcascade file
     cascPathface = os.path.dirname(
         cv2.__file__) + "/data/haarcascade_frontalface_alt2.xml"
@@ -94,5 +95,5 @@ def search(path):
             # update the list of names
             names.append(name)
             # loop over the recognized faces
-            return names
+    return names
 

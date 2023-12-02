@@ -27,8 +27,6 @@ URI_INFO = f'https://api.telegram.org/bot{TOKEN_ID}/getFile?file_id=AgACAgIAAxkB
 URI = f'https://api.telegram.org/file/bot{TOKEN_ID}/'
 
 
-# headers_users = {}  !!!!Тут поставить headers для одновременной работы с ботом нескольких пользователей!!!!
-
 
 class Form(StatesGroup):
     login = State()
@@ -37,6 +35,9 @@ class Form(StatesGroup):
 
 
 class LoadIm(StatesGroup):
+    path = State()
+
+class LoadIm1(StatesGroup):
     path = State()
 
 
@@ -152,9 +153,15 @@ async def load(message: types.Message):
     global path_flag
     '''было бы непохо потом переписать на state'''
     path_flag = False
-    await message.answer("Отправьте фото")
+    await LoadIm.path.set()
+    await message.answer("Отправьте фотографии. Для остановки загрузки фотографий напишите /stop")
 
-    @dp.message_handler(content_types=['text'])
+    @dp.message_handler(commands=['stop'], state=LoadIm.path)
+    async def stop(message: types.Message, state: FSMContext):
+        await state.finish()
+        print("Функция завершена")
+
+    @dp.message_handler(content_types=['text'], state=LoadIm.path)
     async def name(message: types.Message):
         global name
         if path_flag:
@@ -166,7 +173,7 @@ async def load(message: types.Message):
             update_emb(TOKEN)
             await message.answer(f'Сохранение фото в папку "{path}"')
 
-    @dp.message_handler(content_types=['photo'])
+    @dp.message_handler(content_types=['photo'], state=LoadIm.path)
     async def process_photo(message: types.Message):
         global name, path_flag
         file_id = message.photo[-1]["file_id"]
@@ -183,17 +190,17 @@ async def load(message: types.Message):
         tg_id = message.from_user.id
         pathes = search(f'Images/{name}.png')
 
-        pet_search_result = search_pet(f'Images/{name}.png')
-        pet_flag = pet_search_result[0]
-        pet_type = pet_search_result[1]
-
-        if pet_search_result is not None:
-            if pet_flag:
-                upload_file(pet_type, tg_id, name)
-            else:
-                if pet_type is not None:
-                    create_folder(pet_type, tg_id)
-                    upload_file(pet_type, tg_id, name)
+        # # pet_search_result = search_pet(f'Images/{name}.png', tg_id)
+        # pet_flag = pet_search_result[0]
+        # pet_type = pet_search_result[1]
+        #
+        # if pet_search_result is not None:
+        #     if pet_flag:
+        #         upload_file(pet_type, tg_id, name)
+        #     else:
+        #         if pet_type is not None:
+        #             create_folder(pet_type, tg_id)
+        #             upload_file(pet_type, tg_id, name)
 
         print(pathes)
         if pathes:
@@ -209,13 +216,19 @@ async def load(message: types.Message):
 
 @dp.message_handler(commands=['load_image'])
 async def load_w_s(message: types.Message):
+    await LoadIm1.path.set()
     await message.answer(WITOUT_AI)
 
-    @dp.message_handler(content_types=['text'])
+    @dp.message_handler(commands=['stop'], state=LoadIm1.path)
+    async def stop(message: types.Message, state: FSMContext):
+        await state.finish()
+        print("Функция завершена")
+
+    @dp.message_handler(content_types=['text'], state=LoadIm1.path)
     async def name_path(message: types.Message):
         path = message.text
 
-        @dp.message_handler(content_types=['photo'])
+        @dp.message_handler(content_types=['photo'], state=LoadIm1.path)
         async def name_path(message: types.Message):
             file_id = message.photo[-1]["file_id"]
             tg_id = message.from_user.id
@@ -231,6 +244,7 @@ async def load_w_s(message: types.Message):
                 res = requests.get(f'{URL}/upload?path={path}/{tg_id}{random.randint(0, 1000000)}.png&overwrite=False',
                                    headers=all_headers[tg_id]).json()
             requests.put(res['href'], files={'file': io.BytesIO(img.content)})
+            await message.answer("Загрузка завершена")
 
 
 if __name__ == "__main__":
