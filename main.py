@@ -65,12 +65,14 @@ async def start(message: types.Message):
     global headers
     global TOKEN
     tg_id = message.from_user.id
-    if get_token_by_tg_id(tg_id):
-        TOKEN = get_token_by_tg_id(tg_id)
-        all_headers[tg_id] = headers
-        all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
-        update_emb(TOKEN)
-        await message.answer(TOKEN)
+    # if get_token_by_tg_id(tg_id):
+    #     TOKEN = get_token_by_tg_id(tg_id)
+    #     all_headers[tg_id] = headers
+    #     all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
+    #     update_emb(TOKEN)
+    #     await message.answer(TOKEN)
+    if False:
+        pass
     else:
         await message.answer(WELCOME)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)

@@ -32,7 +32,6 @@ def update_emb(TOKEN):
         boxes = face_recognition.face_locations(rgb, model='hog')
         # вычисляем эмбеддинги для каждого лица
         encodings = face_recognition.face_encodings(rgb, boxes)
-        # loop over the encodings
         for encoding in encodings:
             knownEncodings.append(encoding)
             knownNames.append(name)
@@ -45,55 +44,40 @@ def update_emb(TOKEN):
 
 
 def search(path):
-    print(path)
-    # find path of xml file containing haarcascade file
-    cascPathface = os.path.dirname(
-        cv2.__file__) + "/data/haarcascade_frontalface_alt2.xml"
-    # load the harcaascade in the cascade classifier
-    faceCascade = cv2.CascadeClassifier(cascPathface)
-    # load the known faces and embeddings saved in last file
     data = pickle.loads(open('face_enc', "rb").read())
-    # Find path to the image you want to detect face and pass it here
+    # Находим путь к изображению, на котором хотим обнаружить лицо, и передаем его сюда
     image = cv2.imread(path)
     rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
-    # convert image to Greyscale for haarcascade
-    gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
-    faces = faceCascade.detectMultiScale(gray,
-                                         scaleFactor=1.1,
-                                         minNeighbors=5,
-                                         minSize=(60, 60),
-                                         flags=cv2.CASCADE_SCALE_IMAGE)
 
-    # the facial embeddings for face in input
+    # встраивание лиц для face in input
     encodings = face_recognition.face_encodings(rgb)
     names = []
-    # loop over the facial embeddings incase
-    # we have multiple embeddings for multiple fcaes
+    # перебираем выданные нам лица, если у нас есть несколько вложений для нескольких лиц
     for encoding in encodings:
-        # Compare encodings with encodings in data["encodings"]
-        # Matches contain array with boolean values and True for the embeddings it matches closely
-        # and False for rest
+        # Сравниваем кодировки с кодировками в данных["encodings"]
+        # Совпадения содержат массив с логическими значениями и True для вложений, которым он точно соответствует
+        # и False для остального
         matches = face_recognition.compare_faces(data["encodings"],
                                                  encoding)
-        # set name =inknown if no encoding matches
+        # установливаем имя =Unknown, если кодировка не совпадает
         name = "Unknown"
-        # check to see if we have found a match
+        # проверяем, нашли ли мы совпадения
         if True in matches:
-            # Find positions at which we get True and store them
+            # Находим позиции, в которых мы получаем значение True, и сохраняем их
             matchedIdxs = [i for (i, b) in enumerate(matches) if b]
             counts = {}
-            # loop over the matched indexes and maintain a count for
-            # each recognized face face
+            # перебираем совпадающие индексы и ведем подсчет для каждого распознанного лица
             for i in matchedIdxs:
-                # Check the names at respective indexes we stored in matchedIdxs
                 name = data["names"][i]
-                # increase count for the name we got
+                # увеличиваем количество для полученного нами имени
                 counts[name] = counts.get(name, 0) + 1
-                # set name which has highest count
+                # установите имя, имеющее наибольшее количество значений
                 name = max(counts, key=counts.get)
-
-            # update the list of names
             names.append(name)
-            # loop over the recognized faces
-    return names
+    res = []
+    for i in names:
+        if i not in res:
+            res.append(i)
+    return res
 
+print(search(f'photos/vlad1.png'))
