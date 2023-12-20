@@ -1,5 +1,7 @@
 import io
 import os
+import shutil
+
 import requests
 from aiogram import Bot, Dispatcher, types, executor
 from PIL import Image
@@ -11,7 +13,7 @@ import random
 from face_analysis import search, update_emb
 from texts import *
 from add_token import add_token
-from detect_pet import search_pet
+# from detect_pet import search_pet
 from db import *
 
 TOKEN_ID = "6497123928:AAE_TTI7TKoI9iB1W1Ys_1NuEJtKs9wSQSk"
@@ -53,7 +55,7 @@ def upload_file(path, tg_id, name, replace=False):
     replace: true or false Замена файла на Диске"""
     res = requests.get(f'{URL}/upload?path=photos/{path}/{name}.png&overwrite={replace}',
                        headers=all_headers[tg_id]).json()
-    with open(f'Images/{name}.png', 'rb') as f:
+    with open(f'Images_{tg_id}/{name}.png', 'rb') as f:
         try:
             requests.put(res['href'], files={'file': f})
         except KeyError:
@@ -62,17 +64,20 @@ def upload_file(path, tg_id, name, replace=False):
 
 @dp.message_handler(commands=['start'], state=None)
 async def start(message: types.Message):
+
     global headers
     global TOKEN
     tg_id = message.from_user.id
-    # if get_token_by_tg_id(tg_id):
-    #     TOKEN = get_token_by_tg_id(tg_id)
-    #     all_headers[tg_id] = headers
-    #     all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
-    #     update_emb(TOKEN)
-    #     await message.answer(TOKEN)
-    if False:
-        pass
+    if os.path.exists(f'Images_{tg_id}/'):
+        shutil.rmtree(f"Images_{tg_id}/")
+    os.mkdir(f"Images_{tg_id}/")
+    print(tg_id)
+    if get_token_by_tg_id(tg_id):
+        TOKEN = get_token_by_tg_id(tg_id)
+        all_headers[tg_id] = headers
+        all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
+        update_emb(TOKEN, tg_id)
+        await message.answer(TOKEN)
     else:
         await message.answer(WELCOME)
         keyboard = types.ReplyKeyboardMarkup(resize_keyboard=True)
@@ -145,13 +150,16 @@ async def start(message: types.Message):
             tg_id = message.from_user.id
             add_solo_user(tg_id, TOKEN)
             requests.put(f'{URL}?path=photos', headers=all_headers[tg_id])
-            update_emb(TOKEN)
+            update_emb(TOKEN, tg_id)
             await message.answer('Успешно')
             await state.finish()
 
 
 @dp.message_handler(commands=['sort_image'])
 async def load(message: types.Message):
+    tg_id = message.from_user.id
+    if not os.path.exists(f"Images_{tg_id}/"):
+        os.mkdir(f"Images_{tg_id}/")
     global path_flag
     '''было бы непохо потом переписать на state'''
     path_flag = False
@@ -161,6 +169,8 @@ async def load(message: types.Message):
     @dp.message_handler(commands=['stop'], state=LoadIm.path)
     async def stop(message: types.Message, state: FSMContext):
         await state.finish()
+        tg_id = message.from_user.id
+        shutil.rmtree(f"Images_{tg_id}/")
         print("Функция завершена")
 
     @dp.message_handler(content_types=['text'], state=LoadIm.path)
@@ -171,8 +181,8 @@ async def load(message: types.Message):
             tg_id = message.from_user.id
             create_folder(path, tg_id)
             upload_file(path, tg_id, name)
-            os.remove(f'Images/{name}.png')
-            update_emb(TOKEN)
+            os.remove(f'Images_{tg_id}/{name}.png')
+            update_emb(TOKEN, tg_id)
             await message.answer(f'Сохранение фото в папку "{path}"')
 
     @dp.message_handler(content_types=['photo'], state=LoadIm.path)
@@ -187,12 +197,13 @@ async def load(message: types.Message):
         tg_id = message.from_user.id
         name = str(tg_id) + str(random.randint(0, 1000000))
         print(name)
-        img.save(f'Images/{name}.png', format="PNG")
+        img.save(f'Images_{tg_id}/{name}.png', format="PNG")
         img.close()
         tg_id = message.from_user.id
-        pathes = search(f'Images/{name}.png')
+        pathes = search(f'Images_{tg_id}/{name}.png', tg_id)
 
         # # pet_search_result = search_pet(f'Images/{name}.png', tg_id)
+        # pet_flag = pet_search_result[0]
         # pet_flag = pet_search_result[0]
         # pet_type = pet_search_result[1]
         #
@@ -208,7 +219,7 @@ async def load(message: types.Message):
         if pathes:
             for path in pathes:
                 upload_file(path, tg_id, name)
-            os.remove(f'Images/{name}.png')
+            os.remove(f'Images_{tg_id}/{name}.png')
             await message.answer(f'Сохранение фото в папку "{path}"')
         else:
             await message.answer(
@@ -218,6 +229,9 @@ async def load(message: types.Message):
 
 @dp.message_handler(commands=['load_image'])
 async def load_w_s(message: types.Message):
+    tg_id = message.from_user.id
+    if not os.path.exists(f"Images_{tg_id}/"):
+        os.mkdir(f"Images_{tg_id}/")
     await LoadIm1.path.set()
     await message.answer(WITOUT_AI)
 
@@ -250,4 +264,5 @@ async def load_w_s(message: types.Message):
 
 
 if __name__ == "__main__":
+    create_db()
     executor.start_polling(dp, skip_updates=True)

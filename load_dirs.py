@@ -9,23 +9,24 @@ URL = 'https://cloud-api.yandex.net/v1/disk/resources'
 headers = {'Content-Type': 'application/json', 'Accept': 'application/json'}
 
 
-def load_dirs(TOKEN):
+def load_dirs(TOKEN, tg_id):
     global headers
     headers["Authorization"] = f'OAuth {TOKEN}'
-    shutil.rmtree("Images/")
-    os.mkdir('Images/')
+    shutil.rmtree(f"Images_{tg_id}/")
+    os.mkdir(f"Images_{tg_id}/")
     r = requests.get(f"{URL}?path=photos", headers=headers).json()
     dirs = []
     for item in r['_embedded']['items']:
         if item['type'] == 'dir':
             dirs.append(item['name'])
     for dir in dirs:
-        os.mkdir(f'Images/{dir}/')
+        os.mkdir(f'Images_{tg_id}/{dir}/')
         r = requests.get(f"{URL}?path=photos/{dir}", headers=headers).json()
         for elem in r['_embedded']['items']:
             img = requests.get(f'{URL}/download?path=photos/{dir}/{elem["name"]}', headers=headers)
             img = img.json()['href']
             img = requests.get(img)
             img = Image.open(io.BytesIO(img.content))
-            img.save(f'Images/{dir}/{elem["name"]}', format="PNG")
+            img.save(f'Images_{tg_id}/{dir}/{elem["name"]}', format="PNG")
             img.close()
+            break

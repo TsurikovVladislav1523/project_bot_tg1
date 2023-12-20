@@ -14,10 +14,10 @@ TOKEN = 'y0_AgAAAAAntKPVAAqnjgAAAADvHae-eQmDRNXeThaqoPlbkr24VwMpuXY'
 headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'OAuth {TOKEN}'}
 
 
-def update_emb(TOKEN):
+def update_emb(TOKEN, tg_id):
     # в директории Images хранятся папки со всеми изображениями
-    load_dirs(TOKEN)
-    imagePaths = list(paths.list_images('Images'))
+    load_dirs(TOKEN, tg_id)
+    imagePaths = list(paths.list_images(f'Images_{tg_id}'))
     knownEncodings = []
     knownNames = []
     # перебираем все папки с изображениями
@@ -38,46 +38,50 @@ def update_emb(TOKEN):
     # сохраним эмбеддинги вместе с их именами в формате словаря
     data = {"encodings": knownEncodings, "names": knownNames}
     # для сохранения данных в файл используем метод pickle
-    f = open("face_enc", "wb")
+    f = open(f"face_enc_{tg_id}", "wb")
     f.write(pickle.dumps(data))
     f.close()
 
 
-def search(path):
-    data = pickle.loads(open('face_enc', "rb").read())
-    # Находим путь к изображению, на котором хотим обнаружить лицо, и передаем его сюда
-    image = cv2.imread(path)
-    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+def search(path, tg_id):
+    if os.path.exists(f'face_enc_{tg_id}'):
+        data = pickle.loads(open(f'face_enc_{tg_id}', "rb").read())
+        # Находим путь к изображению, на котором хотим обнаружить лицо, и передаем его сюда
+        image = cv2.imread(path)
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
 
-    # встраивание лиц для face in input
-    encodings = face_recognition.face_encodings(rgb)
-    names = []
-    # перебираем выданные нам лица, если у нас есть несколько вложений для нескольких лиц
-    for encoding in encodings:
-        # Сравниваем кодировки с кодировками в данных["encodings"]
-        # Совпадения содержат массив с логическими значениями и True для вложений, которым он точно соответствует
-        # и False для остального
-        matches = face_recognition.compare_faces(data["encodings"],
-                                                 encoding)
-        # установливаем имя =Unknown, если кодировка не совпадает
-        name = "Unknown"
-        # проверяем, нашли ли мы совпадения
-        if True in matches:
-            # Находим позиции, в которых мы получаем значение True, и сохраняем их
-            matchedIdxs = [i for (i, b) in enumerate(matches) if b]
-            counts = {}
-            # перебираем совпадающие индексы и ведем подсчет для каждого распознанного лица
-            for i in matchedIdxs:
-                name = data["names"][i]
-                # увеличиваем количество для полученного нами имени
-                counts[name] = counts.get(name, 0) + 1
-                # установите имя, имеющее наибольшее количество значений
-                name = max(counts, key=counts.get)
-            names.append(name)
-    res = []
-    for i in names:
-        if i not in res:
-            res.append(i)
-    return res
+        # встраивание лиц для face in input
+        encodings = face_recognition.face_encodings(rgb)
+        names = []
+        # перебираем выданные нам лица, если у нас есть несколько вложений для нескольких лиц
+        for encoding in encodings:
+            # Сравниваем кодировки с кодировками в данных["encodings"]
+            # Совпадения содержат массив с логическими значениями и True для вложений, которым он точно соответствует
+            # и False для остального
+            matches = face_recognition.compare_faces(data["encodings"],
+                                                     encoding)
+            # установливаем имя =Unknown, если кодировка не совпадает
+            name = "Unknown"
+            # проверяем, нашли ли мы совпадения
+            if True in matches:
+                # Находим позиции, в которых мы получаем значение True, и сохраняем их
+                matchedIdxs = [i for (i, b) in enumerate(matches) if b]
+                counts = {}
+                # перебираем совпадающие индексы и ведем подсчет для каждого распознанного лица
+                for i in matchedIdxs:
+                    name = data["names"][i]
+                    # увеличиваем количество для полученного нами имени
+                    counts[name] = counts.get(name, 0) + 1
+                    # установите имя, имеющее наибольшее количество значений
+                    name = max(counts, key=counts.get)
+                names.append(name)
+        res = []
+        for i in names:
+            if i not in res:
+                res.append(i)
+        return res
+    else:
+        return []
 
-print(search(f'photos/vlad1.png'))
+# update_emb(,1057505123)
+# print(search(f'photos/vlad1.png'))
