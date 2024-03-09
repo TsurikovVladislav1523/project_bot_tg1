@@ -10,7 +10,7 @@ from aiogram.dispatcher import FSMContext
 from aiogram.dispatcher.filters import state, Text
 from aiogram.dispatcher.filters.state import StatesGroup, State
 import random
-from face_analysis import search, update_emb
+from face_analysis import search, update_emb, fast_umdate_emb, create_emb
 from texts import *
 from add_token import add_token
 # from detect_pet import search_pet
@@ -23,11 +23,9 @@ CLOUD_TOKEN = '8e34e01b502a43c68fb0bb9ba2956df5'
 URL = 'https://cloud-api.yandex.net/v1/disk/resources'
 TOKEN = ''
 all_headers = {}
-headers = {'Content-Type': 'application/json', 'Accept': 'application/json', 'Authorization': f'OAuth {TOKEN}'}
-
+types_acc = {}
 URI_INFO = f'https://api.telegram.org/bot{TOKEN_ID}/getFile?file_id=AgACAgIAAxkBAANYZSBoUZeuyA1XuR4JfzVLgbWQ4mQAAvnPMRsQEgABSbK7DYRZJAwBAQADAgADbQADMAQ'
 URI = f'https://api.telegram.org/file/bot{TOKEN_ID}/'
-
 
 
 class Form(StatesGroup):
@@ -39,7 +37,16 @@ class Form(StatesGroup):
 class LoadIm(StatesGroup):
     path = State()
 
+
 class LoadIm1(StatesGroup):
+    path = State()
+
+
+class LoadIm2(StatesGroup):
+    path = State()
+
+
+class Output(StatesGroup):
     path = State()
 
 
@@ -64,19 +71,16 @@ def upload_file(path, tg_id, name, replace=False):
 
 @dp.message_handler(commands=['start'], state=None)
 async def start(message: types.Message):
-
-    global headers
-    global TOKEN
     tg_id = message.from_user.id
+    types_acc[tg_id] = 1
     if os.path.exists(f'Images_{tg_id}/'):
         shutil.rmtree(f"Images_{tg_id}/")
     os.mkdir(f"Images_{tg_id}/")
     print(tg_id)
     if get_token_by_tg_id(tg_id):
         TOKEN = get_token_by_tg_id(tg_id)
-        all_headers[tg_id] = headers
+        all_headers[tg_id] = {'Content-Type': 'application/json', 'Accept': 'application/json'}
         all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
-        update_emb(TOKEN, tg_id)
         await message.answer(TOKEN)
     else:
         await message.answer(WELCOME)
@@ -93,12 +97,10 @@ async def start(message: types.Message):
 
             @dp.message_handler(state=Form.code_fam)
             async def text(message: types.Message, state: FSMContext):
-                global TOKEN
-                global headers
                 code = message.text
                 TOKEN = add_token(code)
                 tg_id = message.from_user.id
-                all_headers[tg_id] = headers
+                all_headers[tg_id] = {'Content-Type': 'application/json', 'Accept': 'application/json'}
                 all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
                 await message.answer(TOKEN)
                 key = ''
@@ -120,13 +122,11 @@ async def start(message: types.Message):
 
         @dp.message_handler(state=Form.login)
         async def text(message: types.Message, state: FSMContext):
-            global TOKEN
-            global headers
             tg_id = message.from_user.id
             secret_key = message.text
             add_other_family_user(tg_id, secret_key)
             TOKEN = get_token_by_tg_id(tg_id)
-            all_headers[tg_id] = headers
+            all_headers[tg_id] = {'Content-Type': 'application/json', 'Accept': 'application/json'}
             all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
             await message.answer('Успешно')
             await state.finish()
@@ -139,12 +139,10 @@ async def start(message: types.Message):
 
         @dp.message_handler(state=Form.code_ind)
         async def text(message: types.Message, state: FSMContext):
-            global TOKEN
-            global headers
             code = message.text
             TOKEN = add_token(code)
             tg_id = message.from_user.id
-            all_headers[tg_id] = headers
+            all_headers[tg_id] = {'Content-Type': 'application/json', 'Accept': 'application/json'}
             all_headers[tg_id]["Authorization"] = f'OAuth {TOKEN}'
             '''' добвавить бд'''
             tg_id = message.from_user.id
@@ -158,6 +156,8 @@ async def start(message: types.Message):
 @dp.message_handler(commands=['sort_image'])
 async def load(message: types.Message):
     tg_id = message.from_user.id
+    if not os.path.exists(f"face_enc_{tg_id}"):
+        update_emb(TOKEN, tg_id)
     if not os.path.exists(f"Images_{tg_id}/"):
         os.mkdir(f"Images_{tg_id}/")
     global path_flag
@@ -181,8 +181,8 @@ async def load(message: types.Message):
             tg_id = message.from_user.id
             create_folder(path, tg_id)
             upload_file(path, tg_id, name)
+            fast_umdate_emb(f'Images_{tg_id}/{name}.png', path, tg_id)
             os.remove(f'Images_{tg_id}/{name}.png')
-            update_emb(TOKEN, tg_id)
             await message.answer(f'Сохранение фото в папку "{path}"')
 
     @dp.message_handler(content_types=['photo'], state=LoadIm.path)
@@ -261,6 +261,89 @@ async def load_w_s(message: types.Message):
                                    headers=all_headers[tg_id]).json()
             requests.put(res['href'], files={'file': io.BytesIO(img.content)})
             await message.answer("Загрузка завершена")
+
+
+@dp.message_handler(commands=['one_path_sort'])
+async def load_w_s(message: types.Message):
+    tg_id = message.from_user.id
+    TOKEN = get_token_by_tg_id(tg_id)
+    create_emb(TOKEN, tg_id)
+    if not os.path.exists(f"Images_{tg_id}/"):
+        os.mkdir(f"Images_{tg_id}/")
+    await LoadIm2.path.set()
+    await message.answer(SORT_ONE_PATH)
+
+    @dp.message_handler(commands=['stop'], state=LoadIm2.path)
+    async def stop(message: types.Message, state: FSMContext):
+        await state.finish()
+        print("Функция завершена")
+
+@dp.message_handler(content_types=['photo'], state=LoadIm2.path)
+async def name_path(message: types.Message):
+    file_id = message.photo[-1]["file_id"]
+    URI_INFO = f'https://api.telegram.org/bot{TOKEN_ID}/getFile?file_id=' + file_id
+    resp = requests.get(URI_INFO)
+    img_path = resp.json()['result']['file_path']
+    img1 = requests.get(URI + img_path)
+    img = Image.open(io.BytesIO(img1.content))
+    tg_id = message.from_user.id
+    name = str(tg_id) + str(random.randint(0, 1000000))
+    print(1111111)
+    img.save(f'Images_{tg_id}/{name}.png', format="PNG")
+    img.close()
+    pathes = "_".join(search(f'Images_{tg_id}/{name}.png', tg_id))
+    if not pathes:
+        await message.answer("Лицо не найдено. Ведите имя*")
+        @dp.message_handler(content_types=['text'], state=LoadIm2.path)
+        async def name_path(message: types.Message):
+            path = message.text
+            fast_umdate_emb(f'Images_{tg_id}/{name}.png', path, tg_id)
+            pathes = "_".join(search(f'Images_{tg_id}/{name}.png', tg_id))
+            os.remove(f'Images_{tg_id}/{name}.png')
+            res = requests.get(
+                f'{URL}/upload?path=sorted_photo/{pathes}_{tg_id}{random.randint(0, 1000000)}.png&overwrite=False',
+                headers=all_headers[tg_id]).json()
+            print(res.keys())
+            if "error" in res.keys():
+                requests.put(f'{URL}?path=sorted_photo', headers=all_headers[tg_id])
+                res = requests.get(
+                    f'{URL}/upload?path=sorted_photo/{pathes}_{tg_id}{random.randint(0, 1000000)}.png&overwrite=False',
+                    headers=all_headers[tg_id]).json()
+            requests.put(res['href'], files={'file': io.BytesIO(img1.content)})
+            await message.answer("Загрузка завершена")
+    else:
+        os.remove(f'Images_{tg_id}/{name}.png')
+        res = requests.get(
+            f'{URL}/upload?path=sorted_photo/{pathes}_{tg_id}{random.randint(0, 1000000)}.png&overwrite=False',
+            headers=all_headers[tg_id]).json()
+        print(res.keys())
+        if "error" in res.keys():
+            requests.put(f'{URL}?path=sorted_photo', headers=all_headers[tg_id])
+            res = requests.get(
+                f'{URL}/upload?path=sorted_photo/{pathes}_{tg_id}{random.randint(0, 1000000)}.png&overwrite=False',
+                headers=all_headers[tg_id]).json()
+        requests.put(res['href'], files={'file': io.BytesIO(img1.content)})
+        await message.answer("Загрузка завершена")
+
+
+@dp.message_handler(commands=['output'])
+async def load_w_s(message: types.Message):
+    tg_id = message.from_user.id
+    await Output.path.set()
+    await message.answer(OUTPUT_MEESAGE)
+
+    @dp.message_handler(content_types=['text'], state=Output.path)
+    async def name_path(message: types.Message):
+        path = message.text
+        tg_id = message.from_user.id
+        r = requests.get(f"{URL}?path=sorted_photo", headers=all_headers[tg_id]).json()
+        for elem in r['_embedded']['items']:
+            if path in elem["name"]:
+                img = requests.get(f'{URL}/download?path=sorted_photo/{elem["name"]}', headers=all_headers[tg_id])
+                img = img.json()['href']
+                img = requests.get(img)
+                img = io.BytesIO(img.content)
+                await message.answer_photo(img)
 
 
 if __name__ == "__main__":

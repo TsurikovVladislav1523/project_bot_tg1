@@ -3,9 +3,7 @@ import face_recognition
 import pickle
 import cv2
 import os
-from load_dirs import load_dirs
-
-
+from load_dirs import load_dirs, load_path
 
 CLOUD_TOKEN = '8e34e01b502a43c68fb0bb9ba2956df5'
 # CLOUD_URL = f"https://oauth.yandex.ru/authorize?response_type=token&client_id={CLOUD_TOKEN}"
@@ -82,6 +80,41 @@ def search(path, tg_id):
         return res
     else:
         return []
+
+def create_emb(TOKEN, tg_id):
+    names = load_path(TOKEN, tg_id)
+    knownEncodings = []
+    knownNames = []
+    for path in names:
+        image = cv2.imread(f'Images_{tg_id}/one_path/{path}.png')
+        rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+        # используем библиотеку Face_recognition для обнаружения лиц
+        boxes = face_recognition.face_locations(rgb, model='hog')
+        # вычисляем эмбеддинги для каждого лица
+        encodings = face_recognition.face_encodings(rgb, boxes)
+        for encoding in encodings:
+            knownEncodings.append(encoding)
+            knownNames.append(path)
+    data = {"encodings": knownEncodings, "names": knownNames}
+    # для сохранения данных в файл используем метод pickle
+    f = open(f"face_enc_{tg_id}", "wb")
+    f.write(pickle.dumps(data))
+    f.close()
+
+
+def fast_umdate_emb(path, name, tg_id):
+    image = cv2.imread(path)
+    rgb = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
+    # используем библиотеку Face_recognition для обнаружения лиц
+    boxes = face_recognition.face_locations(rgb, model='hog')
+    # вычисляем эмбеддинги для каждого лица
+    encodings = face_recognition.face_encodings(rgb, boxes)
+    data = pickle.loads(open(f'face_enc_{tg_id}', "rb").read())
+    data["encodings"].append(encodings[0])
+    data['names'].append(name)
+    f = open(f"face_enc_{tg_id}", "wb")
+    f.write(pickle.dumps(data))
+    f.close()
 
 # update_emb(,1057505123)
 # print(search(f'photos/vlad1.png'))
